@@ -1,0 +1,7 @@
+John Doe
+Data Analyst | SQL, Python, Tableau
+Experience:
+- Developed dashboards in Tableau to track KPIs
+- Optimized SQL queries for faster reporting
+- Built Python scripts to automate data cleaning
+Skills: SQL, Python, Tableau, Power BI, Data Visualization, ETL
