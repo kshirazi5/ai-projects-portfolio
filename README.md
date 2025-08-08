@@ -2,6 +2,8 @@
 
 [![Open in Streamlit.](https://static.streamlit.io/badges/streamlit_badge_black_white.svg)](https://ai-projects-portfolio.streamlit.app)
 
+url:https://ai-projects-portfolio.streamlit.app
+
 A collection of hands-on AI and data apps built with Python. Each project is self-contained, easy to run locally, and (where possible) available as a one-click web demo.
 
 ---
