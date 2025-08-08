@@ -19,7 +19,7 @@ Compares a resume to a job description using sentence embeddings and cosine simi
 ### Run locally
 ```bash
 # clone
-git clone https://github.com/kshirazi5/ai-projects-portfolio.git
+git clone https://github.com/github-username/ai-projects-portfolio.git
 cd ai-projects-portfolio
 
 # (recommended) use a fresh env
