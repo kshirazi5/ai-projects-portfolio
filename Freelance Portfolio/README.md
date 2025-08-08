@@ -15,12 +15,13 @@ Perfect for optimizing resumes for ATS (Applicant Tracking Systems) and recruite
 **Tech Stack:**  
 Python · Streamlit · Sentence Transformers · PyMuPDF · python-docx
 
-**Run Locally:**
-```bash
+**Run Locally in Terminal/Command Line:**
+
 git clone https://github.com/kshirazi5/ai-projects-portfolio.git
 cd ai-resume-matcher-starter
 pip install -r requirements.txt
 streamlit run app.py
+
 Features:
 
 Upload resumes in PDF/DOCX
