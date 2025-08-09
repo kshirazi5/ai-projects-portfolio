@@ -96,13 +96,20 @@ Update the Main file path to ai-resume-matcher/app.py (avoid spaces in folder na
 Deps won’t install on Cloud:
 Keep a root requirements.txt with:
 
-streamlit>=1.28
+'streamlit>=1.28
+
 sentence-transformers>=2.2.2
+
 pymupdf>=1.23.0
+
 python-docx>=0.8.11
+
 pandas>=1.5
+
 numpy>=1.23
-scikit-learn>=1.1
+
+scikit-learn>=1.1'
+
 
 PDF/DOCX text is empty: Some documents are scanned images (no text layer). Convert to text-based PDF or paste text directly.
 
