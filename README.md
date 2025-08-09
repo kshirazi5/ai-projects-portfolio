@@ -113,10 +113,4 @@ LinkedIn: https://www.linkedin.com/in/kshirazi5
 
 ⭐ If you find this useful, please star the repo!
 
-### What to do next (1 min)
-- Replace `https://YOUR-APP-URL.streamlit.app` with your live Streamlit URL.
-- Save this as your root `README.md` and push:
-  
-  git add README.md
-  git commit -m "docs: polished README with live badge and run instructions"
-  git push
+
