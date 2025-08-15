@@ -1,0 +1,7 @@
+Jane Smith
+Machine Learning Engineer | Python, TensorFlow, NLP
+Experience:
+- Developed sentiment analysis model with 90% accuracy
+- Built recommendation system using collaborative filtering
+- Deployed ML models with Flask and Docker
+Skills: Python, TensorFlow, NLP, Recommenders, Docker, Flask

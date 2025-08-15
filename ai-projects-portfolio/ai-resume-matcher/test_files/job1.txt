@@ -1,0 +1,3 @@
+Data Analyst – San Diego, CA
+We are looking for a Data Analyst with experience in SQL, Python, and dashboarding tools like Tableau or Power BI.
+Responsibilities include analyzing datasets, building reports, and providing insights.
