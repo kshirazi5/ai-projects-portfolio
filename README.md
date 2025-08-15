@@ -1,6 +1,6 @@
 # AI Projects Portfolio
 
-An interactive **Streamlit-based portfolio** featuring multiple AI demos that showcase data science, NLP, and machine learning techniques. Ideal for recruiters and hiring managers exploring your skills.
+An interactive **Streamlit-based portfolio** featuring multiple AI demos that showcase data science, NLP, and machine learning techniques. 
 
 ---
 
