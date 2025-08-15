@@ -27,7 +27,7 @@ Explore it online: [https://kshiraziai.streamlit.app](https://kshiraziai.streaml
 Clone, install dependencies, and run locally:
 
 ```bash
-git clone https://github.com/kshirazi5/ai-projects-portfolio.git
+git clone https://github.com/***/ai-projects-portfolio.git
 cd ai-projects-portfolio
 pip install -r requirements.txt
 streamlit run app.py
