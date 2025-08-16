@@ -1,150 +1,267 @@
-# app.py  (root)
-import numpy as np
-import pandas as pd
-import streamlit as st
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.ensemble import IsolationForest, RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.decomposition import NMF
-from ai_projects import resume_matcher_app
-
-st.set_page_config(page_title="AI Projects Portfolio", page_icon="🤖", layout="wide")
-
-def proj_jd_summarizer():
-    st.header("JD Summarizer & Skill-Gap Highlighter")
-    c1, c2 = st.columns(2)
-    jd = c1.text_area("Job Description", height=260, placeholder="Paste JD here…")
-    resume = c2.text_area("Your Resume", height=260, placeholder="Paste your resume/profile…")
-    if st.button("Analyze Match", type="primary", use_container_width=True):
-        if not jd.strip() or not resume.strip():
-            st.warning("Please paste both JD and Resume.")
-            return
-        vec = TfidfVectorizer(stop_words="english", max_features=2000)
-        X = vec.fit_transform([jd, resume])
-        score = cosine_similarity(X[0], X[1])[0, 0]
-        st.subheader(f"Similarity: {score:.2f}")
-        vocab = np.array(vec.get_feature_names_out())
-        jd_top = np.asarray(X[0].toarray()).ravel().argsort()[-25:][::-1]
-        rs_top = np.asarray(X[1].toarray()).ravel().argsort()[-25:][::-1]
-        missing = sorted(set(vocab[jd_top]) - set(vocab[rs_top]))
-        st.markdown("**Suggested keywords to add:** " + (", ".join(missing) if missing else "None"))
-
-def proj_anomaly_detection():
-    st.header("Anomaly Detection Sandbox (Isolation Forest)")
-    f = st.file_uploader("Upload CSV", type=["csv"])
-    contamination = st.slider("Expected outlier proportion", 0.01, 0.20, 0.05, 0.01)
-    if f is not None:
-        df = pd.read_csv(f)
-        st.write("**Preview**", df.head())
-        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
-        if not num_cols:
-            st.error("No numeric columns found.")
-            return
-        feats = st.multiselect("Features", num_cols, default=num_cols)
-        if st.button("Run", type="primary"):
-            X = df[feats].fillna(df[feats].median())
-            iso = IsolationForest(random_state=42, contamination=contamination)
-            out = iso.fit_predict(X)
-            df_out = df.copy()
-            df_out["anomaly"] = (out == -1).astype(int)
-            st.success(f"Found {df_out['anomaly'].sum()} anomalies / {len(df_out)} rows.")
-            st.dataframe(df_out.head(100), use_container_width=True)
-
-def proj_time_series():
-    st.header("Time-Series Forecaster (Moving Average)")
-    f = st.file_uploader("Upload CSV", type=["csv"], key="ts")
-    date_col = st.text_input("Date column", "date")
-    val_col  = st.text_input("Value column", "value")
-    horizon  = st.number_input("Horizon", 1, 60, 12)
-    window   = st.number_input("MA window", 1, 52, 3)
-    if f is not None:
-        df = pd.read_csv(f)
-        if date_col not in df or val_col not in df:
-            st.error("Column names not found.")
-            return
-        ts = df[[date_col, val_col]].dropna().copy()
-        ts[date_col] = pd.to_datetime(ts[date_col])
-        ts = ts.sort_values(date_col).set_index(date_col)[val_col]
-        st.line_chart(ts)
-        ma = ts.rolling(window=window, min_periods=1).mean()
-        last = float(ma.iloc[-1])
-        freq = pd.infer_freq(ts.index) or "D"
-        future_idx = pd.date_range(ts.index[-1], periods=horizon + 1, freq=freq)[1:]
-        future = pd.Series([last] * horizon, index=future_idx, name="forecast")
-        st.subheader("MA Forecast (flat)")
-        st.line_chart(pd.concat([ts.rename("history"), future], axis=1))
-
-def proj_churn_playground():
-    st.header("Churn Predictor Playground (RandomForest)")
-    f = st.file_uploader("Upload labeled CSV", type=["csv"], key="churn")
-    if f is not None:
-        df = pd.read_csv(f)
-        target = st.selectbox("Target column", df.columns)
-        test_size = st.slider("Test size", 0.1, 0.5, 0.2, 0.05)
-        max_depth = st.slider("Max depth (None when 50)", 2, 50, 10)
-        if st.button("Train", type="primary"):
-            X = pd.get_dummies(df.drop(columns=[target]), drop_first=True)
-            y = df[target]
-            if y.dtype == "O":
-                y = y.astype("category").cat.codes
-            Xtr, Xte, ytr, yte = train_test_split(
-                X, y, test_size=test_size, random_state=42,
-                stratify=y if y.nunique() > 1 else None
-            )
-            clf = RandomForestClassifier(
-                n_estimators=200, random_state=42,
-                max_depth=None if max_depth == 50 else max_depth
-            )
-            clf.fit(Xtr, ytr)
-            preds = clf.predict(Xte)
-            st.write("Accuracy:", round(accuracy_score(yte, preds), 4))
-            st.code(classification_report(yte, preds))
-
-def proj_topic_explorer():
-    st.header("Topic Explorer (NMF)")
-    docs = st.text_area("Documents (one per line)", height=220)
-    n_topics = st.slider("Number of topics", 2, 12, 5)
-    topn = st.slider("Top words per topic", 3, 15, 8)
-    if st.button("Extract Topics", type="primary"):
-        corpus = [d.strip() for d in docs.splitlines() if d.strip()]
-        if len(corpus) < 3:
-            st.warning("Please enter at least 3 docs.")
-            return
-        vec = TfidfVectorizer(stop_words="english", max_features=5000)
-        X = vec.fit_transform(corpus)
-        nmf = NMF(n_components=n_topics, random_state=42, init="nndsvda", max_iter=400)
-        W = nmf.fit_transform(X)
-        H = nmf.components_
-        vocab = np.array(vec.get_feature_names_out())
-        for k in range(n_topics):
-            top_idx = H[k].argsort()[-topn:][::-1]
-            st.markdown(f"**Topic {k+1}:** " + ", ".join(vocab[top_idx]))
-        st.dataframe(pd.DataFrame({
-            "document": corpus,
-            "topic": W.argmax(axis=1) + 1,
-            "strength": W.max(axis=1)
-        }))
-
-def home():
-    st.title("AI Projects Portfolio")
-    st.write("Multi-demo Streamlit app for recruiters and hiring managers.")
-
-PAGES = {
-    "🏠 Home": home,
-    "🧾 Resume Matcher (SBERT)": resume_matcher_app,
-    "📝 JD Summarizer": proj_jd_summarizer,
-    "🛰️ Anomaly Detection": proj_anomaly_detection,
-    "📈 Time-Series Forecast": proj_time_series,
-    "🎯 Churn Predictor": proj_churn_playground,
-    "🧩 Topic Explorer": proj_topic_explorer,
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 3,
+   "id": "3e59e5c7-e57d-495b-a6bd-06df13a9dbfb",
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "2025-08-15 17:15:45.864 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.878 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.880 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.885 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.890 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.893 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.896 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.900 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.904 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.905 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.906 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.909 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.909 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.910 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.911 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.911 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.912 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.913 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.913 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n",
+      "2025-08-15 17:15:45.915 Thread 'MainThread': missing ScriptRunContext! This warning can be ignored when running in bare mode.\n"
+     ]
+    }
+   ],
+   "source": [
+    "# app.py  (root)\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "import streamlit as st\n",
+    "\n",
+    "from sklearn.feature_extraction.text import TfidfVectorizer\n",
+    "from sklearn.metrics.pairwise import cosine_similarity\n",
+    "from sklearn.ensemble import IsolationForest, RandomForestClassifier\n",
+    "from sklearn.model_selection import train_test_split\n",
+    "from sklearn.metrics import classification_report, accuracy_score\n",
+    "from sklearn.decomposition import NMF\n",
+    "\n",
+    "# Import Resume ↔ JD Matcher from ai_projects.py\n",
+    "from ai_projects import resume_matcher_app\n",
+    "\n",
+    "st.set_page_config(page_title=\"AI Projects Portfolio\", page_icon=\"🤖\", layout=\"wide\")\n",
+    "\n",
+    "# -----------------------------\n",
+    "# Project: JD Summarizer & Skill-Gap Highlighter\n",
+    "# -----------------------------\n",
+    "def proj_jd_summarizer():\n",
+    "    st.header(\"JD Summarizer & Skill-Gap Highlighter\")\n",
+    "    st.markdown(\n",
+    "        \"Quickly assess **how well your resume fits a job posting**. \"\n",
+    "        \"We compare TF-IDF features to surface **missing keywords** and show a quick similarity score.\"\n",
+    "    )\n",
+    "\n",
+    "    c1, c2 = st.columns(2)\n",
+    "    jd = c1.text_area(\"Job Description\", height=260, placeholder=\"Paste JD here…\")\n",
+    "    resume = c2.text_area(\"Your Resume\", height=260, placeholder=\"Paste your resume/profile…\")\n",
+    "    if st.button(\"Analyze Match\", type=\"primary\", use_container_width=True):\n",
+    "        if not jd.strip() or not resume.strip():\n",
+    "            st.warning(\"Please paste both JD and Resume.\")\n",
+    "            return\n",
+    "        vec = TfidfVectorizer(stop_words=\"english\", max_features=2000)\n",
+    "        X = vec.fit_transform([jd, resume])\n",
+    "        score = cosine_similarity(X[0], X[1])[0, 0]\n",
+    "        st.subheader(f\"Similarity: {score:.2f}\")\n",
+    "        vocab = np.array(vec.get_feature_names_out())\n",
+    "        jd_top = np.asarray(X[0].toarray()).ravel().argsort()[-25:][::-1]\n",
+    "        rs_top = np.asarray(X[1].toarray()).ravel().argsort()[-25:][::-1]\n",
+    "        missing = sorted(set(vocab[jd_top]) - set(vocab[rs_top]))\n",
+    "        st.markdown(\"**Suggested keywords to add:** \" + (\", \".join(missing) if missing else \"None\"))\n",
+    "\n",
+    "# -----------------------------\n",
+    "# Project: Anomaly Detection\n",
+    "# -----------------------------\n",
+    "def proj_anomaly_detection():\n",
+    "    st.header(\"Anomaly Detection Sandbox (Isolation Forest)\")\n",
+    "    st.markdown(\n",
+    "        \"Upload a dataset and flag **outliers** using Isolation Forest. \"\n",
+    "        \"Great for **fraud detection, data QA,** and **sensor anomalies**.\"\n",
+    "    )\n",
+    "\n",
+    "    f = st.file_uploader(\"Upload CSV\", type=[\"csv\"])\n",
+    "    contamination = st.slider(\"Expected outlier proportion\", 0.01, 0.20, 0.05, 0.01)\n",
+    "    if f is not None:\n",
+    "        df = pd.read_csv(f)\n",
+    "        st.write(\"**Preview**\", df.head())\n",
+    "        num_cols = df.select_dtypes(include=[np.number]).columns.tolist()\n",
+    "        if not num_cols:\n",
+    "            st.error(\"No numeric columns found.\")\n",
+    "            return\n",
+    "        feats = st.multiselect(\"Features\", num_cols, default=num_cols)\n",
+    "        if st.button(\"Run\", type=\"primary\"):\n",
+    "            X = df[feats].fillna(df[feats].median())\n",
+    "            iso = IsolationForest(random_state=42, contamination=contamination)\n",
+    "            out = iso.fit_predict(X)\n",
+    "            df_out = df.copy()\n",
+    "            df_out[\"anomaly\"] = (out == -1).astype(int)\n",
+    "            st.success(f\"Found {df_out['anomaly'].sum()} anomalies / {len(df_out)} rows.\")\n",
+    "            st.dataframe(df_out.head(100), use_container_width=True)\n",
+    "\n",
+    "# -----------------------------\n",
+    "# Project: Time-Series Forecaster\n",
+    "# -----------------------------\n",
+    "def proj_time_series():\n",
+    "    st.header(\"Time-Series Forecaster (Moving Average)\")\n",
+    "    st.markdown(\n",
+    "        \"Visualize your time series and produce a **simple moving-average forecast**. \"\n",
+    "        \"Useful as a **baseline** before advanced models.\"\n",
+    "    )\n",
+    "\n",
+    "    f = st.file_uploader(\"Upload CSV\", type=[\"csv\"], key=\"ts\")\n",
+    "    date_col = st.text_input(\"Date column\", \"date\")\n",
+    "    val_col  = st.text_input(\"Value column\", \"value\")\n",
+    "    horizon  = st.number_input(\"Horizon\", 1, 60, 12)\n",
+    "    window   = st.number_input(\"MA window\", 1, 52, 3)\n",
+    "    if f is not None:\n",
+    "        df = pd.read_csv(f)\n",
+    "        if date_col not in df or val_col not in df:\n",
+    "            st.error(\"Column names not found.\")\n",
+    "            return\n",
+    "        ts = df[[date_col, val_col]].dropna().copy()\n",
+    "        ts[date_col] = pd.to_datetime(ts[date_col])\n",
+    "        ts = ts.sort_values(date_col).set_index(date_col)[val_col]\n",
+    "        st.line_chart(ts)\n",
+    "        ma = ts.rolling(window=window, min_periods=1).mean()\n",
+    "        last = float(ma.iloc[-1])\n",
+    "        freq = pd.infer_freq(ts.index) or \"D\"\n",
+    "        future_idx = pd.date_range(ts.index[-1], periods=horizon + 1, freq=freq)[1:]\n",
+    "        future = pd.Series([last] * horizon, index=future_idx, name=\"forecast\")\n",
+    "        st.subheader(\"MA Forecast (flat)\")\n",
+    "        st.line_chart(pd.concat([ts.rename(\"history\"), future], axis=1))\n",
+    "\n",
+    "# -----------------------------\n",
+    "# Project: Churn Predictor\n",
+    "# -----------------------------\n",
+    "def proj_churn_playground():\n",
+    "    st.header(\"Churn Predictor Playground (RandomForest)\")\n",
+    "    st.markdown(\n",
+    "        \"Train a **quick churn model** on your labeled dataset. Adjust parameters, \"\n",
+    "        \"view **accuracy** and a **classification report**.\"\n",
+    "    )\n",
+    "\n",
+    "    f = st.file_uploader(\"Upload labeled CSV\", type=[\"csv\"], key=\"churn\")\n",
+    "    if f is not None:\n",
+    "        df = pd.read_csv(f)\n",
+    "        target = st.selectbox(\"Target column\", df.columns)\n",
+    "        test_size = st.slider(\"Test size\", 0.1, 0.5, 0.2, 0.05)\n",
+    "        max_depth = st.slider(\"Max depth (None when 50)\", 2, 50, 10)\n",
+    "        if st.button(\"Train\", type=\"primary\"):\n",
+    "            X = pd.get_dummies(df.drop(columns=[target]), drop_first=True)\n",
+    "            y = df[target]\n",
+    "            if y.dtype == \"O\":\n",
+    "                y = y.astype(\"category\").cat.codes\n",
+    "            Xtr, Xte, ytr, yte = train_test_split(\n",
+    "                X, y, test_size=test_size, random_state=42,\n",
+    "                stratify=y if y.nunique() > 1 else None\n",
+    "            )\n",
+    "            clf = RandomForestClassifier(\n",
+    "                n_estimators=200, random_state=42,\n",
+    "                max_depth=None if max_depth == 50 else max_depth\n",
+    "            )\n",
+    "            clf.fit(Xtr, ytr)\n",
+    "            preds = clf.predict(Xte)\n",
+    "            st.write(\"Accuracy:\", round(accuracy_score(yte, preds), 4))\n",
+    "            st.code(classification_report(yte, preds))\n",
+    "\n",
+    "# -----------------------------\n",
+    "# Project: Topic Explorer\n",
+    "# -----------------------------\n",
+    "def proj_topic_explorer():\n",
+    "    st.header(\"Topic Explorer (NMF)\")\n",
+    "    st.markdown(\n",
+    "        \"Discover **latent topics** in a small corpus using **NMF** on TF-IDF vectors. \"\n",
+    "        \"Great for quick **thematic exploration** of documents.\"\n",
+    "    )\n",
+    "\n",
+    "    docs = st.text_area(\"Documents (one per line)\", height=220)\n",
+    "    n_topics = st.slider(\"Number of topics\", 2, 12, 5)\n",
+    "    topn = st.slider(\"Top words per topic\", 3, 15, 8)\n",
+    "    if st.button(\"Extract Topics\", type=\"primary\"):\n",
+    "        corpus = [d.strip() for d in docs.splitlines() if d.strip()]\n",
+    "        if len(corpus) < 3:\n",
+    "            st.warning(\"Please enter at least 3 docs.\")\n",
+    "            return\n",
+    "        vec = TfidfVectorizer(stop_words=\"english\", max_features=5000)\n",
+    "        X = vec.fit_transform(corpus)\n",
+    "        nmf = NMF(n_components=n_topics, random_state=42, init=\"nndsvda\", max_iter=400)\n",
+    "        W = nmf.fit_transform(X)\n",
+    "        H = nmf.components_\n",
+    "        vocab = np.array(vec.get_feature_names_out())\n",
+    "        for k in range(n_topics):\n",
+    "            top_idx = H[k].argsort()[-topn:][::-1]\n",
+    "            st.markdown(f\"**Topic {k+1}:** \" + \", \".join(vocab[top_idx]))\n",
+    "        st.dataframe(pd.DataFrame({\n",
+    "            \"document\": corpus,\n",
+    "            \"topic\": W.argmax(axis=1) + 1,\n",
+    "            \"strength\": W.max(axis=1)\n",
+    "        }))\n",
+    "\n",
+    "# -----------------------------\n",
+    "# Router\n",
+    "# -----------------------------\n",
+    "def home():\n",
+    "    st.title(\"AI Projects Portfolio\")\n",
+    "    st.markdown(\n",
+    "        \"A multi-demo, recruiter-friendly portfolio. Use the **sidebar** to open each project. \"\n",
+    "        \"Each page includes a short description and interactive widgets.\"\n",
+    "    )\n",
+    "\n",
+    "PAGES = {\n",
+    "    \"🏠 Home\": home,\n",
+    "    \"🧾 Resume Matcher (SBERT)\": resume_matcher_app,\n",
+    "    \"📝 JD Summarizer\": proj_jd_summarizer,\n",
+    "    \"🛰️ Anomaly Detection\": proj_anomaly_detection,\n",
+    "    \"📈 Time-Series Forecast\": proj_time_series,\n",
+    "    \"🎯 Churn Predictor\": proj_churn_playground,\n",
+    "    \"🧩 Topic Explorer\": proj_topic_explorer,\n",
+    "}\n",
+    "\n",
+    "with st.sidebar:\n",
+    "    st.title(\"AI Projects\")\n",
+    "    choice = st.radio(\"Navigate\", list(PAGES.keys()))\n",
+    "    st.caption(\"Built with Streamlit • scikit-learn • numpy • pandas\")\n",
+    "\n",
+    "PAGES[choice]()\n"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "id": "cb9c5e04-ed9f-4e5d-9f08-208ce8419d1f",
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python (ai-projects)",
+   "language": "python",
+   "name": "ai-projects"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.10.18"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 5
 }
-
-with st.sidebar:
-    st.title("AI Projects")
-    choice = st.radio("Navigate", list(PAGES.keys()))
-    st.caption("Built with Streamlit • scikit-learn • numpy • pandas")
-
-PAGES[choice]()
