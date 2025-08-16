@@ -1,20 +1,4 @@
-# app.py (root)
-import numpy as np
-import pandas as pd
-import streamlit as st
-
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.ensemble import IsolationForest, RandomForestClassifier
-from sklearn.model_selection import train_test_split
-from sklearn.metrics import classification_report, accuracy_score
-from sklearn.decomposition import NMF
-from ai_projects import resume_matcher_app
-
-st.set_page_config(page_title="AI Projects Portfolio", page_icon="🤖", layout="wide")
-st.sidebar.caption("Build: desc-v3 (root app.py)")
-cat > app.py <<'PY'
-# app.py (root)
+# app.py  (root)
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -27,12 +11,26 @@ from sklearn.metrics import classification_report, accuracy_score
 from sklearn.decomposition import NMF
 
 # Import Resume ↔ JD Matcher from ai_projects.py
-from ai_projects import resume_matcher_app
+try:
+    from ai_projects import resume_matcher_app
+except Exception as e:
+    import os, sys, textwrap
+    st.title("Startup error")
+    st.error(f"Couldn't import `resume_matcher_app` from `ai_projects.py`.\n\n{e}")
+    st.caption("Diagnostics")
+    st.code(textwrap.dedent(f"""
+        cwd: {os.getcwd()}
+        files in cwd: {os.listdir('.')}
+        pythonpath (first 8): {sys.path[:8]}
+        branch hint: (app should be on refactor/root-router)
+        expected files: app.py, ai_projects.py, requirements.txt
+    """))
+    st.stop()
 
 st.set_page_config(page_title="AI Projects Portfolio", page_icon="🤖", layout="wide")
 
-# Helpful build tag to verify the running file
-st.sidebar.caption("Build: desc-v3 (root app.py)")
+st.sidebar.caption("Build: desc-v2")
+st.caption(f"Loaded file: {globals().get('__file__', 'interactive')}")
 
 # -----------------------------
 # Project: JD Summarizer & Skill-Gap Highlighter
@@ -87,7 +85,7 @@ def proj_anomaly_detection():
             out = iso.fit_predict(X)
             df_out = df.copy()
             df_out["anomaly"] = (out == -1).astype(int)
-            st.success(f"Found {df_out['anomaly'].sum()} anomalies / {len[df_out]} rows.")
+            st.success(f"Found {df_out['anomaly'].sum()} anomalies / {len(df_out)} rows.")
             st.dataframe(df_out.head(100), use_container_width=True)
 
 # -----------------------------
@@ -190,7 +188,7 @@ def proj_topic_explorer():
         }))
 
 # -----------------------------
-# Home & Router
+# Router
 # -----------------------------
 def home():
     st.title("AI Projects Portfolio")
