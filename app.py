@@ -9,12 +9,39 @@ from sklearn.ensemble import IsolationForest, RandomForestClassifier
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.decomposition import NMF
-from ai_projects import resume_matcher_app
+
+# Import Resume ↔ JD Matcher from ai_projects.py
+try:
+    from ai_projects import resume_matcher_app
+except Exception as e:
+    import os, sys, textwrap
+    st.title("Startup error")
+    st.error(f"Couldn't import `resume_matcher_app` from `ai_projects.py`.\n\n{e}")
+    st.caption("Diagnostics")
+    st.code(textwrap.dedent(f"""
+        cwd: {os.getcwd()}
+        files in cwd: {os.listdir('.')}
+        pythonpath (first 8): {sys.path[:8]}
+        branch hint: (app should be on refactor/root-router)
+        expected files: app.py, ai_projects.py, requirements.txt
+    """))
+    st.stop()
 
 st.set_page_config(page_title="AI Projects Portfolio", page_icon="🤖", layout="wide")
 
+st.sidebar.caption("Build: desc-v2")
+st.caption(f"Loaded file: {globals().get('__file__', 'interactive')}")
+
+# -----------------------------
+# Project: JD Summarizer & Skill-Gap Highlighter
+# -----------------------------
 def proj_jd_summarizer():
     st.header("JD Summarizer & Skill-Gap Highlighter")
+    st.markdown(
+        "Quickly assess **how well your resume fits a job posting**. "
+        "We compare TF-IDF features to surface **missing keywords** and show a quick similarity score."
+    )
+
     c1, c2 = st.columns(2)
     jd = c1.text_area("Job Description", height=260, placeholder="Paste JD here…")
     resume = c2.text_area("Your Resume", height=260, placeholder="Paste your resume/profile…")
@@ -32,8 +59,16 @@ def proj_jd_summarizer():
         missing = sorted(set(vocab[jd_top]) - set(vocab[rs_top]))
         st.markdown("**Suggested keywords to add:** " + (", ".join(missing) if missing else "None"))
 
+# -----------------------------
+# Project: Anomaly Detection
+# -----------------------------
 def proj_anomaly_detection():
     st.header("Anomaly Detection Sandbox (Isolation Forest)")
+    st.markdown(
+        "Upload a dataset and flag **outliers** using Isolation Forest. "
+        "Great for **fraud detection, data QA,** and **sensor anomalies**."
+    )
+
     f = st.file_uploader("Upload CSV", type=["csv"])
     contamination = st.slider("Expected outlier proportion", 0.01, 0.20, 0.05, 0.01)
     if f is not None:
@@ -53,8 +88,16 @@ def proj_anomaly_detection():
             st.success(f"Found {df_out['anomaly'].sum()} anomalies / {len(df_out)} rows.")
             st.dataframe(df_out.head(100), use_container_width=True)
 
+# -----------------------------
+# Project: Time-Series Forecaster
+# -----------------------------
 def proj_time_series():
     st.header("Time-Series Forecaster (Moving Average)")
+    st.markdown(
+        "Visualize your time series and produce a **simple moving-average forecast**. "
+        "Useful as a **baseline** before advanced models."
+    )
+
     f = st.file_uploader("Upload CSV", type=["csv"], key="ts")
     date_col = st.text_input("Date column", "date")
     val_col  = st.text_input("Value column", "value")
@@ -77,8 +120,16 @@ def proj_time_series():
         st.subheader("MA Forecast (flat)")
         st.line_chart(pd.concat([ts.rename("history"), future], axis=1))
 
+# -----------------------------
+# Project: Churn Predictor
+# -----------------------------
 def proj_churn_playground():
     st.header("Churn Predictor Playground (RandomForest)")
+    st.markdown(
+        "Train a **quick churn model** on your labeled dataset. Adjust parameters, "
+        "view **accuracy** and a **classification report**."
+    )
+
     f = st.file_uploader("Upload labeled CSV", type=["csv"], key="churn")
     if f is not None:
         df = pd.read_csv(f)
@@ -103,8 +154,16 @@ def proj_churn_playground():
             st.write("Accuracy:", round(accuracy_score(yte, preds), 4))
             st.code(classification_report(yte, preds))
 
+# -----------------------------
+# Project: Topic Explorer
+# -----------------------------
 def proj_topic_explorer():
     st.header("Topic Explorer (NMF)")
+    st.markdown(
+        "Discover **latent topics** in a small corpus using **NMF** on TF-IDF vectors. "
+        "Great for quick **thematic exploration** of documents."
+    )
+
     docs = st.text_area("Documents (one per line)", height=220)
     n_topics = st.slider("Number of topics", 2, 12, 5)
     topn = st.slider("Top words per topic", 3, 15, 8)
@@ -128,9 +187,15 @@ def proj_topic_explorer():
             "strength": W.max(axis=1)
         }))
 
+# -----------------------------
+# Router
+# -----------------------------
 def home():
     st.title("AI Projects Portfolio")
-    st.write("Multi-demo Streamlit app for recruiters and hiring managers.")
+    st.markdown(
+        "A multi-demo, recruiter-friendly portfolio. Use the **sidebar** to open each project. "
+        "Each page includes a short description and interactive widgets."
+    )
 
 PAGES = {
     "🏠 Home": home,
